@@ -1,4 +1,4 @@
-//! Aurora's own media plugins (SLPlugin, CEF, LibVLC): a pack downloaded once
+//! Amante's configured media plugins (SLPlugin, CEF, LibVLC): a pack downloaded once
 //! into the user's data folder when no plugins are found, then used by every
 //! session. The state is owned by the UI thread; HTTP, hashing and extraction
 //! run on workers (`aurora_updater::media_pack`).
@@ -58,8 +58,15 @@ impl PluginPack {
     pub fn new(root: PathBuf) -> Self {
         let (tx, rx) = crossbeam_channel::unbounded();
         let dir = media_pack::installed(&root, &PACK);
+        let configured = aurora_version::amante_config::media_distribution_configured();
         let mut this = Self {
-            state: if dir.is_some() { PackState::Ready } else { PackState::Idle },
+            state: if dir.is_some() {
+                PackState::Ready
+            } else if configured {
+                PackState::Idle
+            } else {
+                PackState::Failed(Failure::Unsupported)
+            },
             root,
             dir,
             source: Source::default(),
@@ -70,14 +77,20 @@ impl PluginPack {
             retry_at: None,
             // the isolated update tests have their own local feed, and unit
             // tests no network at all
-            automatic: !cfg!(test) && aurora_updater::test_environment().is_none(),
+            automatic: configured && !cfg!(test) && aurora_updater::test_environment().is_none(),
         };
         // AURORA_MEDIA_PACK_FEED: a pack served by a test server of this PC
         // (loopback only), to try it before it is published. Its size and
         // SHA-256 are still those this viewer was built for.
         if let Ok(feed) = std::env::var("AURORA_MEDIA_PACK_FEED") {
             match Source::local(&feed) {
-                Ok(source) => this.source = source,
+                Ok(source) => {
+                    this.source = source;
+                    this.automatic = !cfg!(test) && aurora_updater::test_environment().is_none();
+                    if this.dir.is_none() {
+                        this.state = PackState::Idle;
+                    }
+                }
                 Err(e) => log::warn!("media: AURORA_MEDIA_PACK_FEED ignored: {e:#}"),
             }
         }

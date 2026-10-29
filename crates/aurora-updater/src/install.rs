@@ -10,7 +10,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-const EXE: &str = "aurora-viewer.exe";
+const EXE: &str = "amante-viewer.exe";
 const ACK_ENV: &str = "AURORA_UPDATE_ACK";
 const ALLOWED: &[&str] = &[
     EXE,

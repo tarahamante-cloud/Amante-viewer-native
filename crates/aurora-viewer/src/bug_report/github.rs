@@ -6,19 +6,23 @@ use crossbeam_channel::{Receiver, Sender};
 use serde_json::Value;
 use std::time::{Duration, Instant};
 
-pub const ISSUES: &str = "https://github.com/Aurora-Viewer/Aurora-Viewer/issues";
-const API: &str = "https://api.github.com/repos/Aurora-Viewer/Aurora-Viewer/issues";
+pub const ISSUES: &str = aurora_version::amante_config::ISSUES_URL;
+const API: &str = aurora_version::amante_config::ISSUES_API;
 pub const VERIFY: &str = "https://github.com/login/device";
 // Public identifier, supplied by the project's GitHub App registration.
-pub const CLIENT_ID: &str = "Iv23liT7PLWClMLztI1W";
+pub const CLIENT_ID: &str = aurora_version::amante_config::GITHUB_CLIENT_ID;
 
 pub struct BrowserDraft {
     pub url: String,
     pub paste_body: bool,
 }
 
-pub fn browser_draft(title: &str, body: &str) -> BrowserDraft {
-    let mut url = reqwest::Url::parse(&format!("{ISSUES}/new")).expect("constant project URL");
+pub fn browser_draft(title: &str, body: &str) -> Option<BrowserDraft> {
+    aurora_version::amante_config::reporting_destination_configured().then(|| browser_draft_at(ISSUES, title, body))
+}
+
+fn browser_draft_at(issues: &str, title: &str, body: &str) -> BrowserDraft {
+    let mut url = reqwest::Url::parse(&format!("{issues}/new")).expect("validated project URL");
     url.query_pairs_mut()
         .append_pair("template", "bug_report.md")
         .append_pair("labels", "bug,alpha")
@@ -203,6 +207,9 @@ impl Drop for Github {
 }
 
 fn client() -> Result<reqwest::Client, Failure> {
+    if !aurora_version::amante_config::reporting_oauth_configured() {
+        return Err(Failure::Configuration);
+    }
     reqwest::Client::builder()
         .user_agent(aurora_version::user_agent())
         .https_only(true)
@@ -500,13 +507,13 @@ mod tests {
     fn browser_roundtrip_and_overlong_body_fallback() {
         let title = "Échec & panne ? #1";
         let body = "Texte privé sélectionné : ça & ceci\nhttps://example.invalid/";
-        let draft = browser_draft(title, body);
+        let draft = browser_draft_at("https://github.com/example/amante-test/issues", title, body);
         let url = reqwest::Url::parse(&draft.url).unwrap();
         let fields: std::collections::HashMap<_, _> = url.query_pairs().into_owned().collect();
         assert_eq!(fields["title"], title);
         assert_eq!(fields["body"], body);
         assert!(!draft.paste_body);
-        let draft = browser_draft(title, &"é".repeat(6000));
+        let draft = browser_draft_at("https://github.com/example/amante-test/issues", title, &"é".repeat(6000));
         assert!(draft.paste_body);
         assert!(draft.url.len() < 7000);
         assert!(!draft.url.contains("body="));

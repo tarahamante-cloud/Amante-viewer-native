@@ -185,9 +185,9 @@ pub async fn install(
     let stage = Stage::new(root).map_err(|e| failure(Failure::Filesystem, e))?;
     let folder = pack.folder();
     let url = source
-        .asset_url(&pack.tag(), &format!("{folder}.zip"))
+        .media_asset_url(&pack.tag(), &format!("{folder}.zip"))
         .map_err(|e| failure(Failure::Network, e))?;
-    let client = source.client().map_err(|e| failure(Failure::Network, e))?;
+    let client = source.media_client().map_err(|e| failure(Failure::Unsupported, e))?;
     let archive = stage.0.join("download.zip");
     let fetch = Fetch {
         url: &url,

@@ -18,7 +18,10 @@ param(
 )
 
 New-Item -ItemType Directory -Force -Path (Join-Path $Out 'assets/emoji') -ErrorAction Stop | Out-Null
-Copy-Item -LiteralPath $Exe -Destination $Out -ErrorAction Stop
+# Keep the internal Cargo target for upstream compatibility; distributions
+# always expose Amante's own executable name.
+$binaryName = if ([IO.Path]::GetExtension($Exe) -eq '.exe') { 'amante-viewer.exe' } else { 'amante-viewer' }
+Copy-Item -LiteralPath $Exe -Destination (Join-Path $Out $binaryName) -ErrorAction Stop
 # The emoji font is inside the exe; its licence ships, and the assets folder
 # stays: the updater of the published versions refuses a package without it.
 Copy-Item -LiteralPath (Join-Path $Source 'assets/emoji/LICENSE-OFL.txt') -Destination (Join-Path $Out 'assets/emoji') -ErrorAction Stop
@@ -35,10 +38,13 @@ Get-ChildItem -LiteralPath $dictionaries -Directory -ErrorAction Stop | ForEach-
         Copy-Item -LiteralPath $license -Destination (Join-Path $dictionariesOut "$($_.Name)-LICENSE.txt") -ErrorAction Stop
     }
 }
-$docs = 'LICENSE', 'NOTICE.md', 'README.md' | ForEach-Object { Join-Path $Source $_ }
+$docs = 'LICENSE', 'NOTICE.md', 'AMANTE.md' | ForEach-Object { Join-Path $Source $_ }
 Copy-Item -LiteralPath $docs -Destination $Out -ErrorAction Stop
+Copy-Item -LiteralPath (Join-Path $Source 'docs/amante/README.md') -Destination (Join-Path $Out 'README.md') -ErrorAction Stop
+New-Item -ItemType Directory -Force -Path (Join-Path $Out 'docs') -ErrorAction Stop | Out-Null
+Copy-Item -LiteralPath (Join-Path $Source 'docs/amante') -Destination (Join-Path $Out 'docs') -Recurse -ErrorAction Stop
 $taskExePath = (Resolve-Path -LiteralPath $Exe).Path
-$taskVersion = (& $taskExePath --version | Out-String).Trim() -replace '^Aurora Viewer ', ''
+$taskVersion = (& $taskExePath --version | Out-String).Trim() -replace '^Amante Viewer ', ''
 if ($LASTEXITCODE -ne 0 -or $taskVersion -notmatch '^\d+\.\d+\.\d+([+-][0-9A-Za-z.+-]+)?$') { throw 'Invalid package version.' }
 $taskJson = @{ schema = 1; version = $taskVersion } | ConvertTo-Json
 $taskMetadataPath = Join-Path (Resolve-Path -LiteralPath $Out -ErrorAction Stop).Path 'aurora-install.json'

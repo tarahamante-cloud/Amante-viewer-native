@@ -227,7 +227,7 @@ impl Recovery {
                     .show(ui, |ui| {
                         ui.set_width(ui.available_width());
                         ui.horizontal_wrapped(|ui| {
-                            ui.label(RichText::new(format!("Aurora Viewer {}", self.record.version)).strong());
+                            ui.label(RichText::new(format!("Amante Viewer {}", self.record.version)).strong());
                             ui.label(
                                 RichText::new(format!("· {} · {}", self.record.profile, self.record.language.to_uppercase()))
                                     .color(p.muted),
@@ -490,13 +490,15 @@ impl Recovery {
                 let browser = aurora_i18n::tr!("crash-open-browser");
                 if !busy
                     && ui
-                        .add_enabled_ui(described, |ui| {
-                            widgets::action_button(ui, p, "external-link-filled", browser, ActionKind::Flat, big)
-                        })
+                        .add_enabled_ui(
+                            described && aurora_version::amante_config::reporting_destination_configured(),
+                            |ui| widgets::action_button(ui, p, "external-link-filled", browser, ActionKind::Flat, big),
+                        )
                         .inner
+                        .on_disabled_hover_text(aurora_i18n::tr!("bug-github-config"))
                         .clicked()
+                    && let Some((url, with_body)) = super::github::browser_url(&self.summary.title, &body)
                 {
-                    let (url, with_body) = super::github::browser_url(&self.summary.title, &body);
                     if !with_body {
                         ui.ctx().copy_text(body.clone());
                     }

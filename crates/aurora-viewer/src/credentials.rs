@@ -3,8 +3,8 @@
 //! the system credential store (Windows Credential Manager, protected by the
 //! user's session) instead of Firestorm's bin_conf.dat file.
 
-const SERVICE: &str = "Aurora Viewer";
-const MFA_SERVICE: &str = "Aurora Viewer MFA";
+const SERVICE: &str = "Amante Viewer";
+const MFA_SERVICE: &str = "Amante Viewer MFA";
 const MFA_LIFETIME: u64 = 30 * 24 * 60 * 60;
 
 /// Firestorm LLLoginInstance::saveMFAHash: separate protected map per user/grid.
@@ -197,6 +197,15 @@ pub fn forget(grid: &str, username: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn amante_security_credential_namespaces_never_reuse_auroras() {
+        // Deliberately do not construct an Entry or touch the system store.
+        assert_eq!(SERVICE, "Amante Viewer");
+        assert_eq!(MFA_SERVICE, "Amante Viewer MFA");
+        assert_ne!(SERVICE, "Aurora Viewer");
+        assert_ne!(MFA_SERVICE, "Aurora Viewer MFA");
+    }
 
     #[derive(Default)]
     struct MemoryStore(std::cell::RefCell<std::collections::HashMap<String, String>>);

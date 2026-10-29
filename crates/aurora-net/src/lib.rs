@@ -18,6 +18,7 @@ pub mod freeze;
 pub mod group_money;
 pub mod groups;
 pub mod home;
+mod http_security;
 mod im_reply;
 pub mod inventory;
 pub mod land;
@@ -111,8 +112,7 @@ pub enum NetError {
 }
 
 /// The certificates a simulator's capability may be signed by: the public
-/// roots and Linden Lab's own CA (the simulator hostname is not checked, see
-/// NetClient::new).
+/// roots and Linden Lab's own CA. The requested hostname is always verified.
 pub(crate) fn simulator_roots() -> Vec<reqwest::Certificate> {
     let mut roots: Vec<reqwest::Certificate> = webpki_root_certs::TLS_SERVER_ROOT_CERTS
         .iter()
@@ -147,23 +147,12 @@ impl NetClient {
             .enable_all()
             .build()?;
         // Login (public host): standard verification, plus Linden Lab's own CA.
-        let ll_ca = reqwest::Certificate::from_pem_bundle(include_bytes!("../lindenlab.pem")).unwrap_or_default();
-        let http = reqwest::Client::builder()
-            .user_agent(aurora_version::user_agent())
-            .connect_timeout(std::time::Duration::from_secs(15))
-            .tls_certs_merge(ll_ca)
-            .build()
-            .map_err(|e| NetError::Http(e.to_string()))?;
-        // Capabilities / assets: like LL's llcorehttp (mVerifyHost = false) the
-        // certificate chain is verified (public roots + Linden Lab CA) but the
-        // simulator hostname is not.
-        let roots = simulator_roots();
-        let caps_http = reqwest::Client::builder()
-            .user_agent(aurora_version::user_agent())
+        let http = http_security::login_client().build().map_err(|e| NetError::Http(e.to_string()))?;
+        // Retain the simulator trust anchors, but never the legacy blanket
+        // hostname bypass: a trusted certificate must identify the endpoint.
+        let caps_http = http_security::simulator_client()
             .pool_max_idle_per_host(32)
             .connect_timeout(std::time::Duration::from_secs(15))
-            .tls_certs_only(roots.clone())
-            .tls_danger_accept_invalid_hostnames(true)
             .build()
             .map_err(|e| NetError::Http(e.to_string()))?;
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<NetCommand>();
@@ -182,15 +171,12 @@ impl NetClient {
         // assets are served with an odd Content-Encoding that must not
         // make the fetch fail.
         let fetch_slots = fetch_slots();
-        let asset_http = reqwest::Client::builder()
-            .user_agent(aurora_version::user_agent())
+        let asset_http = http_security::simulator_client()
             // (connections kept for every request the pace may have)
             .pool_max_idle_per_host(fetch_slots.unwrap_or(fetch_pace::MAX).max(32))
             .connect_timeout(std::time::Duration::from_secs(30))
             .gzip(false)
             .redirect(reqwest::redirect::Policy::limited(10))
-            .tls_certs_only(roots)
-            .tls_danger_accept_invalid_hostnames(true)
             .build()
             .map_err(|e| NetError::Http(e.to_string()))?;
         let (fetcher, fetch_results) = Fetcher::paced(rt.handle(), asset_http, fetch_slots, stats.clone());

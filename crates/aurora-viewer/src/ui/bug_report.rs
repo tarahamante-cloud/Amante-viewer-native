@@ -206,18 +206,21 @@ impl BugReportUi {
                             self.notice = Some("bug-demo-saved");
                         } else if delivery == Delivery::Browser {
                             let body = report.markdown();
-                            let draft = github::browser_draft(&report.title, &body);
-                            if draft.paste_body {
-                                ctx.copy_text(body);
-                            }
-                            self.notice = Some(if draft.paste_body {
-                                "bug-browser-paste"
+                            if let Some(draft) = github::browser_draft(&report.title, &body) {
+                                if draft.paste_body {
+                                    ctx.copy_text(body);
+                                }
+                                self.notice = Some(if draft.paste_body {
+                                    "bug-browser-paste"
+                                } else {
+                                    "bug-browser-opened"
+                                });
+                                ctx.open_url(egui::OpenUrl::new_tab(draft.url));
+                                // Opening a draft URL is not confirmation of publication.
+                                self.browser_opened = true;
                             } else {
-                                "bug-browser-opened"
-                            });
-                            ctx.open_url(egui::OpenUrl::new_tab(draft.url));
-                            // Opening a draft URL is not confirmation of publication.
-                            self.browser_opened = true;
+                                self.notice = Some("bug-github-config");
+                            }
                         } else if delivery == Delivery::Direct {
                             self.github.submit(report.title.clone(), report.markdown());
                             self.notice = None;

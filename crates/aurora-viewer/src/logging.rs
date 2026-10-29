@@ -10,9 +10,9 @@ pub fn logs_dir() -> PathBuf {
     if let Some(test) = aurora_updater::test_environment() {
         return test.root.join("logs");
     }
-    directories::ProjectDirs::from("org", "Aurora", "AuroraViewer")
+    directories::ProjectDirs::from("org", "Amante", "AmanteViewer")
         .map(|d| d.data_local_dir().join("logs"))
-        .unwrap_or_else(|| PathBuf::from("logs"))
+        .unwrap_or_else(|| PathBuf::from("amante-logs"))
 }
 
 pub fn log_path() -> PathBuf {
@@ -27,9 +27,9 @@ fn log_stem() -> String {
         return name.to_string_lossy().into_owned();
     }
     let base = if std::env::var_os("AURORA_DEMO").is_some() {
-        "aurora-demo"
+        "amante-demo"
     } else {
-        "aurora"
+        "amante"
     };
     match crate::cli::title_slug() {
         Some(slug) => format!("{base}-{slug}"),
@@ -254,7 +254,7 @@ pub fn init() {
         log::error!("panic: {info}\n{bt}");
     }));
     log::info!(
-        "Aurora Viewer {} starting ({} {}, {} allocator), log: {}",
+        "Amante Viewer {} starting ({} {}, {} allocator), log: {}",
         aurora_version::version(),
         std::env::consts::OS,
         std::env::consts::ARCH,

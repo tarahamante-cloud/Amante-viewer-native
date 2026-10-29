@@ -1,5 +1,14 @@
 # Aurora Viewer architecture
 
+## Amante fork boundaries
+
+The complete upstream native architecture below is retained. The fork adds
+`aurora-net/src/http_security.rs` for shared strict simulator TLS and trusted
+login redirects, and `aurora-version/src/amante_config.rs` for public
+owner-controlled service configuration without upstream fallbacks. Production
+update activation remains blocked pending authenticated metadata. Detailed
+source parity, security limitations and build evidence are in `docs/amante`.
+
 `aurora-net/src/session.rs` keeps the last confirmed agent parcel. Selected,
 hovered and build-tool property replies refresh its live metadata only when
 the simulator and local parcel id match; its bitmap, bounds and notification

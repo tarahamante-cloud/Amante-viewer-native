@@ -29,7 +29,7 @@ fn pipe_name() -> String {
     unsafe {
         ProcessIdToSessionId(GetCurrentProcessId(), &mut session);
     }
-    let mut name = format!(r"\\.\pipe\aurora-viewer-slurl-{session}");
+    let mut name = format!(r"\\.\pipe\amante-viewer-slurl-{session}");
     if std::env::var_os("AURORA_DEMO").is_some() {
         name.push_str("-demo");
     }

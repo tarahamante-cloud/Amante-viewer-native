@@ -1,3 +1,11 @@
+> **Amante Viewer native development fork**
+>
+> This branch contains Amante's native source, based on Aurora Viewer.
+> Start with [AMANTE.md](AMANTE.md) for the current build, service and testing
+> status. It is not a finished or security-certified release.
+> The original upstream project overview, screenshots, authorship and links
+> below are retained as upstream documentation, not Amante service ownership.
+
 <div align="center">
 
 <img src="assets/branding/logo-loup-couleur.svg" alt="Aurora Viewer" width="180">

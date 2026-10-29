@@ -101,7 +101,7 @@ mod win {
     use windows::core::{HSTRING, IInspectable, PCWSTR, Ref};
 
     /// The application's identity for Windows' notifications.
-    const AUMID: &str = "Aurora.Viewer";
+    const AUMID: &str = "Amante.Viewer";
     /// Notifications kept alive for their click handler.
     const KEEP: usize = 32;
 
@@ -159,7 +159,7 @@ mod win {
     fn register() {
         let key = format!("Software\\Classes\\AppUserModelId\\{AUMID}");
         let icon = icon_file();
-        let mut values = vec![("DisplayName", "Aurora Viewer".to_owned())];
+        let mut values = vec![("DisplayName", "Amante Viewer".to_owned())];
         if let Some(icon) = icon {
             values.push(("IconUri", icon.display().to_string()));
         }

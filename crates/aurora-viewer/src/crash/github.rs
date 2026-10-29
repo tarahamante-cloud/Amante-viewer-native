@@ -10,14 +10,22 @@ use crossbeam_channel::{Receiver, Sender};
 use serde_json::Value;
 use std::time::{Duration, Instant};
 
-const API: &str = "https://api.github.com/repos/Aurora-Viewer/Aurora-Viewer/issues";
-pub const ISSUES: &str = "https://github.com/Aurora-Viewer/Aurora-Viewer/issues";
+const API: &str = aurora_version::amante_config::ISSUES_API;
+pub const ISSUES: &str = aurora_version::amante_config::ISSUES_URL;
 pub const VERIFY: &str = "https://github.com/login/device";
 const TOKEN: &str = "https://github.com/login/oauth/access_token";
 // Public identifier of the project's GitHub App (Device Flow enabled).
-const CLIENT_ID: &str = "Iv23liT7PLWClMLztI1W";
-const SERVICE: &str = "Aurora Viewer GitHub";
+const CLIENT_ID: &str = aurora_version::amante_config::GITHUB_CLIENT_ID;
+const SERVICE: &str = "Amante Viewer GitHub";
 const ACCOUNT: &str = "crash-reports";
+
+impl std::fmt::Debug for Authorization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Authorization")
+            .field("tokens", &"[redacted]")
+            .finish_non_exhaustive()
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Failure {
@@ -48,7 +56,7 @@ impl Failure {
 
 /// A user token of the GitHub App. Without token expiration (an App
 /// setting), GitHub returns neither `expires_in` nor a refresh token.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Authorization {
     access: String,
     expires: u64,
@@ -341,6 +349,9 @@ fn runtime() -> Result<tokio::runtime::Runtime, Failure> {
 }
 
 fn client() -> Result<reqwest::Client, Failure> {
+    if !aurora_version::amante_config::reporting_oauth_configured() {
+        return Err(Failure::Configuration);
+    }
     reqwest::Client::builder()
         .user_agent(aurora_version::user_agent())
         .https_only(true)
@@ -511,8 +522,12 @@ async fn create_request(client: &reqwest::Client, url: &str, token: &str, title:
 
 /// The browser alternative: a new issue with the title and, when the URL
 /// stays short enough, the body; otherwise the window copies the body.
-pub fn browser_url(title: &str, body: &str) -> (String, bool) {
-    let mut url = reqwest::Url::parse(&format!("{ISSUES}/new")).expect("constant project URL");
+pub fn browser_url(title: &str, body: &str) -> Option<(String, bool)> {
+    aurora_version::amante_config::reporting_destination_configured().then(|| browser_url_at(ISSUES, title, body))
+}
+
+fn browser_url_at(issues: &str, title: &str, body: &str) -> (String, bool) {
+    let mut url = reqwest::Url::parse(&format!("{issues}/new")).expect("validated project URL");
     url.query_pairs_mut().append_pair("title", title).append_pair("body", body);
     if url.as_str().len() <= 7000 {
         return (url.into(), true);
@@ -681,10 +696,14 @@ mod tests {
 
     #[test]
     fn the_browser_link_carries_the_body_while_it_fits() {
-        let (url, with_body) = browser_url("Crash: é & ?", "Rapport : ça & ceci");
+        let (url, with_body) = browser_url_at(
+            "https://github.com/example/amante-test/issues",
+            "Crash: é & ?",
+            "Rapport : ça & ceci",
+        );
         let fields: std::collections::HashMap<_, _> = reqwest::Url::parse(&url).unwrap().query_pairs().into_owned().collect();
         assert!(with_body && fields["title"] == "Crash: é & ?" && fields["body"] == "Rapport : ça & ceci");
-        let (url, with_body) = browser_url("Crash", &"é".repeat(6000));
+        let (url, with_body) = browser_url_at("https://github.com/example/amante-test/issues", "Crash", &"é".repeat(6000));
         assert!(!with_body && url.len() < 7000 && !url.contains("body="));
     }
 }
